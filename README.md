@@ -21,12 +21,16 @@ impl<'a> Foo<'a> {
 
 Currently it is just an edited version of [deep-clone-derive](https://github.com/asajeffrey/deep-clone/blob/master/deep-clone-derive/lib.rs) example but supports:
 
- * [tuple structs](./blob/tests/tuple_struct.rs)
- * normal [structs](./blob/tests/struct.rs)
- * enums with tuple variants [tuple enums](./blob/tests/simple_enum.rs)
+ * [tuple structs](./blob/master/tests/tuple_struct.rs)
+ * normal [structs](./blob/master/tests/struct.rs)
+ * enums with tuple variants [tuple enums](./blob/master/tests/simple_enum.rs)
  * `IntoOwned` alike fields (actually assumes all fields with types with lifetimes are `IntoOwned` alike)
  * options of Cow types `Option<Cow<'a, str>>`
  * options of Cow-like types `Option<Foo<'a>>`
+
+## Types with lifetimes
+
+If your struct has a field with type `Bar<'a>` then `Bar` is assumed to have a method `fn into_owned(self) -> Bar<'static>`.
 
 ## Limitations
 
@@ -70,8 +74,3 @@ note: ...so that expression is assignable (expected Foo<'static>, found Foo<'_>)
   |          ^^^^^^^^^
 error: aborting due to previous error(s)
 ```
-
-
-## Types with lifetimes
-
-If your struct has a field with type `Bar<'a>` then `Bar` is assumed to have a method `fn into_owned(self) -> Bar<'static>`.
