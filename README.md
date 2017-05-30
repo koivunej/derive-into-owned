@@ -1,6 +1,8 @@
 # derive-into-owned
 
 [![Build Status](https://travis-ci.org/koivunej/derive-into-owned.svg?branch=master)](https://travis-ci.org/koivunej/derive-into-owned)
+[![crates.io](https://img.shields.io/crates/v/derive-into-owned.svg)](https://crates.io/crates/derive-into-owned)
+[![docs.rs](https://docs.rs/derive-into-owned/badge.svg)](https://docs.rs/derive-into-owned/)
 
 Rust procedural macros for deriving methods to help with working with types that contain [`Cow`](https://doc.rust-lang.org/std/borrow/enum.Cow.html) fields. `[derive(IntoOwned)]` generates a method similar to:
 
