@@ -12,7 +12,6 @@ pub fn into_owned(input: TokenStream) -> TokenStream {
     let ast = syn::parse_derive_input(&source).unwrap();
 
     let expanded = impl_into_owned(&ast);
-    println!("{}", expanded);
 
     expanded.parse().unwrap()
 }
@@ -36,15 +35,6 @@ fn impl_into_owned(ast: &syn::DeriveInput) -> quote::Tokens {
         quote! {}
     } else {
         quote! { < #(#params),* > }
-    };
-
-    //let type_constraints = ast.generics.ty_params.iter().map(|ty| quote! { #ty: DeepClone });
-    let where_clause_predicates = ast.generics.where_clause.predicates.iter().map(|pred| quote! { #pred });
-    let where_clause_items = where_clause_predicates.collect::<Vec<_>>(); //type_constraints.chain(where_clause_predicates).collect::<Vec<_>>();
-    let where_clause = if where_clause_items.is_empty() {
-        quote! { }
-    } else {
-        quote! { where #(#where_clause_items),* }
     };
 
     let owned_lifetime_params = ast.generics.lifetimes.iter().map(|_| quote! { 'static });
