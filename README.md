@@ -23,12 +23,12 @@ impl<'a> Foo<'a> {
 
 Currently it is just an edited version of [deep-clone-derive](https://github.com/asajeffrey/deep-clone/blob/master/deep-clone-derive/lib.rs) example but supports:
 
- * [tuple structs](./blob/master/tests/tuple_struct.rs)
- * normal [structs](./blob/master/tests/struct.rs)
- * enums with tuple variants [tuple enums](./blob/master/tests/simple_enum.rs)
+ * [tuple structs](./tests/tuple_struct.rs)
+ * normal [structs](./tests/struct.rs)
+ * enums with tuple variants [tuple enums](./tests/simple_enum.rs)
  * `IntoOwned` alike fields (actually assumes all fields with types with lifetimes are `IntoOwned` alike)
- * [options of Cow or Cow-like types](./blob/master/tests/opt_field.rs) `Option<Cow<'a, str>>` and `Option<Foo<'a>>`
- * [vectors of Cow or Cow-like types](./blob/master/tests/vec.rs)
+ * [options of Cow or Cow-like types](./tests/opt_field.rs) `Option<Cow<'a, str>>` and `Option<Foo<'a>>`
+ * [vectors of Cow or Cow-like types](./tests/vec.rs)
 
 But wait there is even more! `[derive(Borrowed)]` generates a currently perhaps a bit limited version of a method like:
 
