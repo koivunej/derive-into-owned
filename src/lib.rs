@@ -173,6 +173,7 @@ impl BodyGenerator for IntoOwnedGen {
     fn combine_impl(&self, borrowed: quote::Tokens, name: &syn::Ident, params: quote::Tokens, owned: quote::Tokens, body: quote::Tokens) -> quote::Tokens {
         quote! {
             impl #borrowed #name #params {
+                /// Returns a version of `self` with all fields converted to owning versions.
                 pub fn into_owned(self) -> #name #owned { #body }
             }
         }
@@ -256,6 +257,7 @@ impl BodyGenerator for BorrowedGen {
     fn combine_impl(&self, borrowed: quote::Tokens, name: &syn::Ident, params: quote::Tokens, owned: quote::Tokens, body: quote::Tokens) -> quote::Tokens {
         quote! {
             impl #borrowed #name #params {
+                /// Returns a clone of `self` that shares all the "Cow-alike" data with `self`.
                 pub fn borrowed<'__borrowedgen>(&'__borrowedgen self) -> #name #owned { #body }
             }
         }
