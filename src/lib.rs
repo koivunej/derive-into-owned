@@ -155,14 +155,14 @@ impl FieldKind {
         }
     }
 
-    fn move_or_clone_field(&self, ident: &quote::Tokens) -> quote::Tokens {
+    fn move_or_clone_field(&self, var: &quote::Tokens) -> quote::Tokens {
         use self::FieldKind::*;
 
         match self {
-            &PlainCow => quote! { ::std::borrow::Cow::Owned(#ident.into_owned()) },
-            &AssumedCow => quote! { #ident.into_owned() },
+            &PlainCow => quote! { ::std::borrow::Cow::Owned(#var.into_owned()) },
+            &AssumedCow => quote! { #var.into_owned() },
             &RecursiveOption(_) => unimplemented!(),
-            &JustMoved => quote! { #ident },
+            &JustMoved => quote! { #var },
         }
     }
 }
