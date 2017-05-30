@@ -1,5 +1,7 @@
 # derive-into-owned
 
+[![Build Status](https://travis-ci.org/koivunej/derive-into-owned.svg?branch=master)](https://travis-ci.org/koivunej/derive-into-owned)
+
 Proof of concept Rust procedural macro for deriving methods like:
 
 ```
