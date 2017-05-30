@@ -1,0 +1,11 @@
+[package]
+name = "derive-into-owned"
+version = "0.1.0"
+authors = ["Joonas Koivunen <joonas.koivunen@gmail.com>"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "0.11"
+quote = "0.3"
