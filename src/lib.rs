@@ -134,7 +134,8 @@ fn ctor_fields(data: &syn::VariantData) -> quote::Tokens {
 enum FieldKind {
     PlainCow,
     AssumedCow,
-    RecursiveOption(Box<FieldKind>),
+    /// Option fields with either PlainCow or AssumedCow
+    OptField(usize, Box<FieldKind>),
     JustMoved
 }
 
@@ -147,6 +148,8 @@ impl FieldKind {
                     FieldKind::PlainCow
                 } else if is_cow_alike(segments) {
                     FieldKind::AssumedCow
+                } else if let Some(kind) = is_opt_cow(segments) {
+                    kind
                 } else {
                     FieldKind::JustMoved
                 }
@@ -161,7 +164,18 @@ impl FieldKind {
         match self {
             &PlainCow => quote! { ::std::borrow::Cow::Owned(#var.into_owned()) },
             &AssumedCow => quote! { #var.into_owned() },
-            &RecursiveOption(_) => unimplemented!(),
+            &OptField(levels, ref inner) => {
+                let next = syn::Ident::from("val");
+                let next = quote! { #next };
+
+                let mut tokens = inner.move_or_clone_field(&next);
+
+                for _ in 0..(levels - 1) {
+                    tokens = quote! { #next.map(|#next| #tokens) };
+                }
+
+                quote! { #var.map(|#next| #tokens) }
+            }
             &JustMoved => quote! { #var },
         }
     }
@@ -197,6 +211,41 @@ fn is_cow_alike(segments: &Vec<syn::PathSegment>) -> bool {
     }
 }
 
-// fn is_opt_cow(segments: &Vec<syn::PathSegment>) -> bool {
-//     unimplemented!()
-// }
+fn is_opt_cow(mut segments: &Vec<syn::PathSegment>) -> Option<FieldKind> {
+    let mut levels = 0;
+    loop {
+        if type_hopefully_is(segments, "std::option::Option") {
+            match *segments.last().unwrap() {
+                syn::PathSegment { parameters: syn::PathParameters::AngleBracketed(ref data), .. } => {
+                    if !data.lifetimes.is_empty() || !data.bindings.is_empty() {
+                        // Option<&'a ?> cannot be moved but let the compiler complain
+                        // don't know about data bindings
+                        break;
+                    }
+
+                    if data.types.len() != 1 {
+                        // Option<A, B> probably means some other, movable option
+                        break;
+                    }
+
+                    match *data.types.first().unwrap() {
+                        syn::Ty::Path(None, syn::Path { segments: ref next_segments, ..}) => {
+                            levels += 1;
+                            segments = next_segments;
+                            continue;
+                        }
+                        _ => break,
+                    }
+                },
+                _ => {}
+            }
+        } else if is_cow(segments) {
+            return Some(FieldKind::OptField(levels, Box::new(FieldKind::PlainCow)));
+        } else if is_cow_alike(segments) {
+            return Some(FieldKind::OptField(levels, Box::new(FieldKind::AssumedCow)));
+        }
+
+        break;
+    }
+    return None;
+}

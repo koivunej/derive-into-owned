@@ -25,14 +25,14 @@ Currently it is just an edited version of [deep-clone-derive](https://github.com
  * normal [structs](./blob/tests/struct.rs)
  * enums with tuple variants [tuple enums](./blob/tests/simple_enum.rs)
  * `IntoOwned` alike fields (actually assumes all fields with types with lifetimes are `IntoOwned` alike)
+ * options of Cow types `Option<Cow<'a, str>>`
+ * options of Cow-like types `Option<Foo<'a>>`
 
 ## Limitations
 
 Currently it will fail miserably for at least but not limited to:
 
  * borrowed fields like `&'a str`
- * options of Cow types `Option<Cow<'a, str>>`
- * options of Cow-like types `Option<Cow<'a, str>>`
 
 ## Types with lifetimes
 
