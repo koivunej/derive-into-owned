@@ -197,7 +197,7 @@ impl BodyGenerator for BorrowedGen {
                     .map(|field| {
                         let ident = field.ident.as_ref().unwrap();
                         let field_ref = quote! { self.#ident };
-                        let code = FieldKind::resolve(field).borrow_field(&field_ref);
+                        let code = FieldKind::resolve(field).borrow_or_clone(&field_ref);
                         quote! { #ident: #code }
                     })
                     .collect::<Vec<_>>();
@@ -209,7 +209,7 @@ impl BodyGenerator for BorrowedGen {
                     .map(|(index, field)| {
                         let index = syn::Ident::from(index);
                         let index = quote! { self.#index };
-                        FieldKind::resolve(field).borrow_field(&index)
+                        FieldKind::resolve(field).borrow_or_clone(&index)
                     })
                     .collect::<Vec<_>>();
                 quote! { ( #(#fields),* ) }
@@ -230,7 +230,7 @@ impl BodyGenerator for BorrowedGen {
                     .map(|field| {
                         let ref ident = field.ident.as_ref().unwrap();
                         let ident = quote! { #ident };
-                        let code = FieldKind::resolve(field).borrow_field(&ident);
+                        let code = FieldKind::resolve(field).borrow_or_clone(&ident);
                         quote! { #ident: #code }
                     })
                     .collect::<Vec<_>>();
@@ -243,7 +243,7 @@ impl BodyGenerator for BorrowedGen {
                 let cloned = idents.iter().zip(body.iter())
                     .map(|(ident, field)| {
                         let ident = quote! { #ident };
-                        FieldKind::resolve(field).borrow_field(&ident)
+                        FieldKind::resolve(field).borrow_or_clone(&ident)
                     })
                     .collect::<Vec<_>>();
                 quote! { #ident ( #(ref #idents),* ) => #ident ( #(#cloned),* ) }
@@ -324,7 +324,7 @@ impl FieldKind {
         }
     }
 
-    fn borrow_field(&self, var: &quote::Tokens) -> quote::Tokens {
+    fn borrow_or_clone(&self, var: &quote::Tokens) -> quote::Tokens {
         use self::FieldKind::*;
 
         match self {
@@ -334,7 +334,7 @@ impl FieldKind {
                 let next = syn::Ident::from("val");
                 let next = quote! { #next };
 
-                let mut tokens = inner.borrow_field(&next);
+                let mut tokens = inner.borrow_or_clone(&next);
 
                 for _ in 0..(levels - 1) {
                     tokens = quote! { #next.as_ref().map(|#next| #tokens) };
@@ -346,11 +346,11 @@ impl FieldKind {
                 let next = syn::Ident::from("x");
                 let next = quote! { #next };
 
-                let tokens = inner.borrow_field(&next);
+                let tokens = inner.borrow_or_clone(&next);
 
                 quote! { #var.iter().map(|x| #tokens).collect() }
             }
-            &JustMoved => quote! { #var },
+            &JustMoved => quote! { #var.clone() },
         }
     }
 }

@@ -12,6 +12,12 @@ struct Foo<'a> {
 #[derive(IntoOwned, Borrowed)]
 struct Bar<'a> {
     c: Cow<'a, [u8]>,
+    s: SomeCloneType,
+}
+
+#[derive(Clone)]
+struct SomeCloneType {
+    foo: u32
 }
 
 #[test]
