@@ -265,6 +265,7 @@ enum FieldKind {
     AssumedCow,
     /// Option fields with either PlainCow or AssumedCow
     OptField(usize, Box<FieldKind>),
+    IterableField(Box<FieldKind>),
     JustMoved
 }
 
@@ -278,6 +279,8 @@ impl FieldKind {
                 } else if is_cow_alike(segments) {
                     FieldKind::AssumedCow
                 } else if let Some(kind) = is_opt_cow(segments) {
+                    kind
+                } else if let Some(kind) = is_iter_field(segments) {
                     kind
                 } else {
                     FieldKind::JustMoved
@@ -305,6 +308,14 @@ impl FieldKind {
 
                 quote! { #var.map(|#next| #tokens) }
             }
+            &IterableField(ref inner) => {
+                let next = syn::Ident::from("x");
+                let next = quote! { #next };
+
+                let tokens = inner.move_or_clone_field(&next);
+
+                quote! { #var.into_iter().map(|x| #tokens).collect() }
+            }
             &JustMoved => quote! { #var },
         }
     }
@@ -326,6 +337,14 @@ impl FieldKind {
                 }
 
                 quote! { #var.as_ref().map(|#next| #tokens) }
+            },
+            &IterableField(ref inner) => {
+                let next = syn::Ident::from("x");
+                let next = quote! { #next };
+
+                let tokens = inner.borrow_field(&next);
+
+                quote! { #var.iter().map(|x| #tokens).collect() }
             }
             &JustMoved => quote! { #var },
         }
@@ -398,5 +417,43 @@ fn is_opt_cow(mut segments: &Vec<syn::PathSegment>) -> Option<FieldKind> {
 
         break;
     }
-    return None;
+
+    None
+}
+
+fn is_iter_field(mut segments: &Vec<syn::PathSegment>) -> Option<FieldKind> {
+    loop {
+        // this should be easy to do for arrays as well..
+        if type_hopefully_is(segments, "std::vec::Vec") {
+            match *segments.last().unwrap() {
+                syn::PathSegment { parameters: syn::PathParameters::AngleBracketed(ref data), .. } => {
+                    if !data.lifetimes.is_empty() || !data.bindings.is_empty() {
+                        break;
+                    }
+
+                    if data.types.len() != 1 {
+                        // TODO: this could be something like Vec<(u32, Bar<'a>)>?
+                        break;
+                    }
+
+                    match *data.types.first().unwrap() {
+                        syn::Ty::Path(None, syn::Path { segments: ref next_segments, ..}) => {
+                            segments = next_segments;
+                            continue;
+                        }
+                        _ => break,
+                    }
+                },
+                _ => {}
+            }
+        } else if is_cow(segments) {
+            return Some(FieldKind::IterableField(Box::new(FieldKind::PlainCow)));
+        } else if is_cow_alike(segments) {
+            return Some(FieldKind::IterableField(Box::new(FieldKind::AssumedCow)));
+        }
+
+        break;
+    }
+
+    None
 }

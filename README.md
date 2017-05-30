@@ -27,8 +27,8 @@ Currently it is just an edited version of [deep-clone-derive](https://github.com
  * normal [structs](./blob/master/tests/struct.rs)
  * enums with tuple variants [tuple enums](./blob/master/tests/simple_enum.rs)
  * `IntoOwned` alike fields (actually assumes all fields with types with lifetimes are `IntoOwned` alike)
- * options of Cow types `Option<Cow<'a, str>>`
- * options of Cow-like types `Option<Foo<'a>>`
+ * [options of Cow or Cow-like types](./blob/master/tests/opt_field.rs) `Option<Cow<'a, str>>` and `Option<Foo<'a>>`
+ * [vectors of Cow or Cow-like types](./blob/master/tests/vec.rs)
 
 But wait there is even more! `[derive(Borrowed)]` generates a currently perhaps a bit limited version of a method like:
 
@@ -52,6 +52,8 @@ Currently deriving will fail miserably for at least but not limited to:
 
  * `IntoOwned`: borrowed fields like `&'a str`
  * `Borrowed`: struct/enum has more than one lifetime
+ * both: arrays not supported
+ * both: into_owned/borrowed types inside tuples inside vectors
 
 Using with incompatible types results in not so understandable error messages. For example, given a struct:
 
