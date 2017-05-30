@@ -167,12 +167,26 @@ impl FieldKind {
     }
 }
 
-fn is_cow(segments: &Vec<syn::PathSegment>) -> bool {
-    let idents = segments.iter().map(|x| &x.ident).collect::<Vec<_>>();
+fn type_hopefully_is(segments: &Vec<syn::PathSegment>, expected: &str) -> bool {
+    let expected = expected.split("::").map(syn::Ident::from).collect::<Vec<_>>();
+    if segments.len() > expected.len() {
+        return false
+    }
 
-    (idents.len() == 3 && idents[0] == "std" && idents[1] == "borrow" && idents[2] == "Cow")
-        || (idents.len() == 2 && idents[0] == "borrow" && idents[1] == "Cow")
-        || (idents.len() == 1 && idents[0] == "Cow")
+    let expected = expected.iter().map(|x| x).collect::<Vec<_>>();
+    let segments = segments.iter().map(|x| &x.ident).collect::<Vec<_>>();
+
+    for len in 0..expected.len() {
+        if &segments[..] == &expected[expected.len() - len - 1..] {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn is_cow(segments: &Vec<syn::PathSegment>) -> bool {
+    type_hopefully_is(segments, "std::borrow::Cow")
 }
 
 fn is_cow_alike(segments: &Vec<syn::PathSegment>) -> bool {
