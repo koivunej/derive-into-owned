@@ -2,6 +2,8 @@
 name = "derive-into-owned"
 version = "0.1.0"
 authors = ["Joonas Koivunen <joonas.koivunen@gmail.com>"]
+description = "Custom derives to help with types containing Cow fields"
+license = "MIT"
 
 [lib]
 proc-macro = true

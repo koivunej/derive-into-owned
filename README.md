@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/koivunej/derive-into-owned.svg?branch=master)](https://travis-ci.org/koivunej/derive-into-owned)
 
-Proof of concept Rust procedural macro for deriving methods like:
+Rust procedural macros for deriving methods to help with working with types that contain [`Cow`](https://doc.rust-lang.org/std/borrow/enum.Cow.html) fields. `[derive(IntoOwned)]` generates a method similar to:
 
 ```
 import std::borrow::Cow;
