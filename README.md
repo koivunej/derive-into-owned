@@ -1,4 +1,4 @@
-**derive-into-owned**
+# derive-into-owned
 
 Proof of concept Rust procedural macro for deriving methods like:
 
@@ -74,4 +74,4 @@ error: aborting due to previous error(s)
 
 ## Types with lifetimes
 
-If your struct has a field with type `Bar<'a>`, it is assumed to have a method `fn into_owned(self) -> Bar<'static>`.
+If your struct has a field with type `Bar<'a>` then `Bar` is assumed to have a method `fn into_owned(self) -> Bar<'static>`.
