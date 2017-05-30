@@ -6,6 +6,7 @@ extern crate quote;
 use proc_macro::TokenStream;
 
 #[proc_macro_derive(IntoOwned)]
+#[doc(hidden)]
 pub fn into_owned(input: TokenStream) -> TokenStream {
     let source = input.to_string();
 
@@ -17,6 +18,7 @@ pub fn into_owned(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(Borrowed)]
+#[doc(hidden)]
 pub fn borrowed(input: TokenStream) -> TokenStream {
     let source = input.to_string();
 
