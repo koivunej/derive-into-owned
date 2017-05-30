@@ -11,7 +11,7 @@ struct Foo<'a> {
 
 impl<'a> Foo<'a> {
 	/// This method would be derived using #[derive(IntoOwned)]
-	fn into_owned(self) -> Foo<'static> {
+	pub fn into_owned(self) -> Foo<'static> {
 		Foo {
 			field: Cow::Owned(self.field.into_owned()),
 		}
@@ -28,15 +28,28 @@ Currently it is just an edited version of [deep-clone-derive](https://github.com
  * options of Cow types `Option<Cow<'a, str>>`
  * options of Cow-like types `Option<Foo<'a>>`
 
+But wait there is even more! `[derive(Borrowed)]` generates a currently perhaps a bit limited version of a method like:
+
+```
+impl<'a> Foo<'a> {
+	pub fn borrowed<'b>(&'b self) -> Foo<'b> {
+		Foo {
+			field: Cow::Borrowed(self.field.as_ref()),
+		}
+	}
+}
+```
+
 ## Types with lifetimes
 
 If your struct has a field with type `Bar<'a>` then `Bar` is assumed to have a method `fn into_owned(self) -> Bar<'static>`.
 
 ## Limitations
 
-Currently it will fail miserably for at least but not limited to:
+Currently deriving will fail miserably for at least but not limited to:
 
- * borrowed fields like `&'a str`
+ * `IntoOwned`: borrowed fields like `&'a str`
+ * `Borrowed`: struct/enum has more than one lifetime
 
 Using with incompatible types results in not so understandable error messages. For example, given a struct:
 

@@ -11,44 +11,51 @@ pub fn into_owned(input: TokenStream) -> TokenStream {
 
     let ast = syn::parse_derive_input(&source).unwrap();
 
-    let expanded = impl_into_owned(&ast);
+    let expanded = impl_with_generator(&ast, IntoOwnedGen);
 
     expanded.parse().unwrap()
 }
 
-fn impl_into_owned(ast: &syn::DeriveInput) -> quote::Tokens {
+#[proc_macro_derive(Borrowed)]
+pub fn borrowed(input: TokenStream) -> TokenStream {
+    let source = input.to_string();
+
+    let ast = syn::parse_derive_input(&source).unwrap();
+
+    let expanded = impl_with_generator(&ast, BorrowedGen);
+
+    expanded.parse().unwrap()
+}
+
+fn impl_with_generator<G: BodyGenerator>(ast: &syn::DeriveInput, gen: G) -> quote::Tokens {
     // this is based heavily on https://github.com/asajeffrey/deep-clone/blob/master/deep-clone-derive/lib.rs
     let name = &ast.ident;
 
-    let borrowed_lifetime_params = ast.generics.lifetimes.iter().map(|alpha| quote! { #alpha });
-    let borrowed_type_params = ast.generics.ty_params.iter().map(|ty| quote! { #ty });
-    let borrowed_params = borrowed_lifetime_params.chain(borrowed_type_params).collect::<Vec<_>>();
+    let borrowed_params = gen.quote_borrowed_params(ast);
     let borrowed = if borrowed_params.is_empty() {
         quote! { }
     } else {
         quote! { < #(#borrowed_params),* > }
     };
 
-
-    let params = ast.generics.lifetimes.iter().map(|alpha| quote! { #alpha }).chain(ast.generics.ty_params.iter().map(|ty| { let ref ident = &ty.ident; quote! { #ident } })).collect::<Vec<_>>();
+    let params = gen.quote_type_params(ast);
     let params = if params.is_empty() {
         quote! {}
     } else {
         quote! { < #(#params),* > }
     };
 
-    let owned_lifetime_params = ast.generics.lifetimes.iter().map(|_| quote! { 'static });
-    let owned_type_params = ast.generics.ty_params.iter().map(|ty| { let ref ident = &ty.ident; quote! { #ident } });
-    let owned_params = owned_lifetime_params.chain(owned_type_params).collect::<Vec<_>>();
+
+    let owned_params = gen.quote_rhs_params(ast);
     let owned = if owned_params.is_empty() {
         quote! { }
     } else {
         quote! { < #(#owned_params),* > }
     };
 
-    let into_owned = match ast.body {
+    let body = match ast.body {
         syn::Body::Struct(ref variant) => {
-            let inner = ctor_fields(variant);
+            let inner = gen.visit_struct(variant);
             quote! { #name #inner }
         },
         syn::Body::Enum(ref body) => {
@@ -56,77 +63,199 @@ fn impl_into_owned(ast: &syn::DeriveInput) -> quote::Tokens {
                 .map(|case| {
                     let unqualified_ident = &case.ident;
                     let ident = quote! { #name::#unqualified_ident };
-                    match case.data {
-                        syn::VariantData::Struct(ref body) => {
-                            let idents = body.iter()
-                                .map(|field| field.ident.as_ref().unwrap())
-                                .collect::<Vec<_>>();
-                            let cloned = body.iter()
-                                .map(|field| {
-                                    let ref ident = field.ident.as_ref().unwrap();
-                                    let ident = quote! { #ident };
-                                    let code = FieldKind::resolve(field).move_or_clone_field(&ident);
-                                    quote! { #ident: #code }
-                                })
-                                .collect::<Vec<_>>();
-                            quote! { #ident { #(#idents),* } => #ident { #(#cloned),* } }
-                        },
-                        syn::VariantData::Tuple(ref body) => {
-                            let idents = (0..body.len())
-                                .map(|index| syn::Ident::from(format!("x{}", index)))
-                                .collect::<Vec<_>>();
-                            let cloned = idents.iter().zip(body.iter())
-                                .map(|(ident, field)| {
-                                    let ident = quote! { #ident };
-                                    FieldKind::resolve(field).move_or_clone_field(&ident)
-                                })
-                                .collect::<Vec<_>>();
-                            quote! { #ident ( #(#idents),* ) => #ident ( #(#cloned),* ) }
-                        },
-                        syn::VariantData::Unit => {
-                            quote! { #ident => #ident }
-                        },
-                    }
+
+                    gen.visit_enum_data(ident, &case.data)
                 })
                 .collect::<Vec<_>>();
             quote! { match self { #(#cases),* } }
         },
     };
 
-    quote! {
-        impl #borrowed #name #params {
-            pub fn into_owned(self) -> #name #owned { #into_owned }
+    gen.combine_impl(borrowed, name, params, owned, body)
+}
+
+/// Probably not the best abstraction
+trait BodyGenerator {
+
+    fn quote_borrowed_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
+        let borrowed_lifetime_params = ast.generics.lifetimes.iter().map(|alpha| quote! { #alpha });
+        let borrowed_type_params = ast.generics.ty_params.iter().map(|ty| quote! { #ty });
+        borrowed_lifetime_params.chain(borrowed_type_params).collect::<Vec<_>>()
+    }
+
+    fn quote_type_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
+        ast.generics.lifetimes.iter().map(|alpha| quote! { #alpha }).chain(
+            ast.generics.ty_params.iter().map(|ty| { let ref ident = &ty.ident; quote! { #ident } })
+        ).collect::<Vec<_>>()
+    }
+
+    fn quote_rhs_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
+        let owned_lifetime_params = ast.generics.lifetimes.iter().map(|_| quote! { 'static });
+        let owned_type_params = ast.generics.ty_params.iter().map(|ty| { let ref ident = &ty.ident; quote! { #ident } });
+        owned_lifetime_params.chain(owned_type_params).collect::<Vec<_>>()
+    }
+
+    fn visit_struct(&self, data: &syn::VariantData) -> quote::Tokens;
+    fn visit_enum_data(&self, variant: quote::Tokens, data: &syn::VariantData) -> quote::Tokens;
+    fn combine_impl(&self, borrows: quote::Tokens, name: &syn::Ident, rhs_params: quote::Tokens, owned: quote::Tokens, body: quote::Tokens) -> quote::Tokens;
+}
+
+struct IntoOwnedGen;
+
+impl BodyGenerator for IntoOwnedGen {
+
+    fn visit_struct(&self, data: &syn::VariantData) -> quote::Tokens {
+        match *data {
+            syn::VariantData::Struct(ref body) => {
+                let fields = body.iter()
+                    .map(|field| {
+                        let ident = field.ident.as_ref().unwrap();
+                        let field_ref = quote! { self.#ident };
+                        let code = FieldKind::resolve(field).move_or_clone_field(&field_ref);
+                        quote! { #ident: #code }
+                    })
+                    .collect::<Vec<_>>();
+                quote! { { #(#fields),* } }
+            },
+            syn::VariantData::Tuple(ref body) => {
+                let fields = body.iter()
+                    .enumerate()
+                    .map(|(index, field)| {
+                        let index = syn::Ident::from(index);
+                        let index = quote! { self.#index };
+                        FieldKind::resolve(field).move_or_clone_field(&index)
+                    })
+                    .collect::<Vec<_>>();
+                quote! { ( #(#fields),* ) }
+            },
+            syn::VariantData::Unit => {
+                quote! {}
+            }
+        }
+    }
+
+    fn visit_enum_data(&self, ident: quote::Tokens, data: &syn::VariantData) -> quote::Tokens {
+        match *data {
+            syn::VariantData::Struct(ref body) => {
+                let idents = body.iter()
+                    .map(|field| field.ident.as_ref().unwrap())
+                    .collect::<Vec<_>>();
+                let cloned = body.iter()
+                    .map(|field| {
+                        let ref ident = field.ident.as_ref().unwrap();
+                        let ident = quote! { #ident };
+                        let code = FieldKind::resolve(field).move_or_clone_field(&ident);
+                        quote! { #ident: #code }
+                    })
+                    .collect::<Vec<_>>();
+                quote! { #ident { #(#idents),* } => #ident { #(#cloned),* } }
+            },
+            syn::VariantData::Tuple(ref body) => {
+                let idents = (0..body.len())
+                    .map(|index| syn::Ident::from(format!("x{}", index)))
+                    .collect::<Vec<_>>();
+                let cloned = idents.iter().zip(body.iter())
+                    .map(|(ident, field)| {
+                        let ident = quote! { #ident };
+                        FieldKind::resolve(field).move_or_clone_field(&ident)
+                    })
+                    .collect::<Vec<_>>();
+                quote! { #ident ( #(#idents),* ) => #ident ( #(#cloned),* ) }
+            },
+            syn::VariantData::Unit => {
+                quote! { #ident => #ident }
+            },
+        }
+    }
+
+    fn combine_impl(&self, borrowed: quote::Tokens, name: &syn::Ident, params: quote::Tokens, owned: quote::Tokens, body: quote::Tokens) -> quote::Tokens {
+        quote! {
+            impl #borrowed #name #params {
+                pub fn into_owned(self) -> #name #owned { #body }
+            }
         }
     }
 }
 
-fn ctor_fields(data: &syn::VariantData) -> quote::Tokens {
-    match *data {
-        syn::VariantData::Struct(ref body) => {
-            let fields = body.iter()
-                .map(|field| {
-                    let ident = field.ident.as_ref().unwrap();
-                    let field_ref = quote! { self.#ident };
-                    let code = FieldKind::resolve(field).move_or_clone_field(&field_ref);
-                    quote! { #ident: #code }
-                })
-                .collect::<Vec<_>>();
-            quote! { { #(#fields),* } }
-        },
-        syn::VariantData::Tuple(ref body) => {
-            let fields = body.iter()
-                .enumerate()
-                .map(|(index, field)| {
-                    let index = syn::Ident::from(index);
-                    let index = quote! { self.#index };
-                    FieldKind::resolve(field).move_or_clone_field(&index)
-                })
-                .collect::<Vec<_>>();
-            quote! { ( #(#fields),* ) }
-        },
-        syn::VariantData::Unit => {
-            quote! {}
+struct BorrowedGen;
 
+impl BodyGenerator for BorrowedGen {
+
+    fn quote_rhs_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
+        let owned_lifetime_params = ast.generics.lifetimes.iter().map(|_| quote! { '__borrowedgen });
+        let owned_type_params = ast.generics.ty_params.iter().map(|ty| { let ref ident = &ty.ident; quote! { #ident } });
+        owned_lifetime_params.chain(owned_type_params).collect::<Vec<_>>()
+    }
+
+    fn visit_struct(&self, data: &syn::VariantData) -> quote::Tokens {
+        match *data {
+            syn::VariantData::Struct(ref body) => {
+                let fields = body.iter()
+                    .map(|field| {
+                        let ident = field.ident.as_ref().unwrap();
+                        let field_ref = quote! { self.#ident };
+                        let code = FieldKind::resolve(field).borrow_field(&field_ref);
+                        quote! { #ident: #code }
+                    })
+                    .collect::<Vec<_>>();
+                quote! { { #(#fields),* } }
+            },
+            syn::VariantData::Tuple(ref body) => {
+                let fields = body.iter()
+                    .enumerate()
+                    .map(|(index, field)| {
+                        let index = syn::Ident::from(index);
+                        let index = quote! { self.#index };
+                        FieldKind::resolve(field).borrow_field(&index)
+                    })
+                    .collect::<Vec<_>>();
+                quote! { ( #(#fields),* ) }
+            },
+            syn::VariantData::Unit => {
+                quote! {}
+            }
+        }
+    }
+
+    fn visit_enum_data(&self, ident: quote::Tokens, data: &syn::VariantData) -> quote::Tokens {
+        match *data {
+            syn::VariantData::Struct(ref body) => {
+                let idents = body.iter()
+                    .map(|field| field.ident.as_ref().unwrap())
+                    .collect::<Vec<_>>();
+                let cloned = body.iter()
+                    .map(|field| {
+                        let ref ident = field.ident.as_ref().unwrap();
+                        let ident = quote! { #ident };
+                        let code = FieldKind::resolve(field).borrow_field(&ident);
+                        quote! { #ident: #code }
+                    })
+                    .collect::<Vec<_>>();
+                quote! { #ident { #(ref #idents),* } => #ident { #(#cloned),* } }
+            },
+            syn::VariantData::Tuple(ref body) => {
+                let idents = (0..body.len())
+                    .map(|index| syn::Ident::from(format!("x{}", index)))
+                    .collect::<Vec<_>>();
+                let cloned = idents.iter().zip(body.iter())
+                    .map(|(ident, field)| {
+                        let ident = quote! { #ident };
+                        FieldKind::resolve(field).borrow_field(&ident)
+                    })
+                    .collect::<Vec<_>>();
+                quote! { #ident ( #(ref #idents),* ) => #ident ( #(#cloned),* ) }
+            },
+            syn::VariantData::Unit => {
+                quote! { #ident => #ident }
+            },
+        }
+    }
+
+    fn combine_impl(&self, borrowed: quote::Tokens, name: &syn::Ident, params: quote::Tokens, owned: quote::Tokens, body: quote::Tokens) -> quote::Tokens {
+        quote! {
+            impl #borrowed #name #params {
+                pub fn borrowed<'__borrowedgen>(&'__borrowedgen self) -> #name #owned { #body }
+            }
         }
     }
 }
@@ -175,6 +304,28 @@ impl FieldKind {
                 }
 
                 quote! { #var.map(|#next| #tokens) }
+            }
+            &JustMoved => quote! { #var },
+        }
+    }
+
+    fn borrow_field(&self, var: &quote::Tokens) -> quote::Tokens {
+        use self::FieldKind::*;
+
+        match self {
+            &PlainCow => quote! { ::std::borrow::Cow::Borrowed(#var.as_ref()) },
+            &AssumedCow => quote! { #var.borrowed() },
+            &OptField(levels, ref inner) => {
+                let next = syn::Ident::from("val");
+                let next = quote! { #next };
+
+                let mut tokens = inner.borrow_field(&next);
+
+                for _ in 0..(levels - 1) {
+                    tokens = quote! { #next.as_ref().map(|#next| #tokens) };
+                }
+
+                quote! { #var.as_ref().map(|#next| #tokens) }
             }
             &JustMoved => quote! { #var },
         }
