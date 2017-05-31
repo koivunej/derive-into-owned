@@ -7,7 +7,7 @@
 Rust procedural macros for deriving methods to help with working with types that contain [`Cow`](https://doc.rust-lang.org/std/borrow/enum.Cow.html) fields. `[derive(IntoOwned)]` generates a method similar to:
 
 ```rust
-import std::borrow::Cow;
+use std::borrow::Cow;
 
 struct Foo<'a> {
 	field: Cow<'a, str>,
