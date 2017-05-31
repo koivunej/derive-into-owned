@@ -6,7 +6,7 @@
 
 Rust procedural macros for deriving methods to help with working with types that contain [`Cow`](https://doc.rust-lang.org/std/borrow/enum.Cow.html) fields. `[derive(IntoOwned)]` generates a method similar to:
 
-```
+```rust
 import std::borrow::Cow;
 
 struct Foo<'a> {
@@ -34,7 +34,7 @@ Currently it is just an edited version of [deep-clone-derive](https://github.com
 
 But wait there is even more! `[derive(Borrowed)]` generates a currently perhaps a bit limited version of a method like:
 
-```
+```rust
 impl<'a> Foo<'a> {
 	pub fn borrowed<'b>(&'b self) -> Foo<'b> {
 		Foo {
@@ -59,7 +59,7 @@ Currently deriving will fail miserably for at least but not limited to:
 
 Using with incompatible types results in not so understandable error messages. For example, given a struct:
 
-```
+```rust
 #[derive(IntoOwned)]
 struct Foo<'a> {
 	field: &'a str,
