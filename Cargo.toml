@@ -6,7 +6,7 @@ description = "Custom derives to help with types containing Cow fields"
 license = "MIT"
 repository = "https://github.com/koivunej/derive-into-owned"
 homepage = "https://github.com/koivunej/derive-into-owned"
-edition = "2018"
+edition = "2021"
 
 [lib]
 proc-macro = true
