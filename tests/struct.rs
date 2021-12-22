@@ -30,7 +30,9 @@ struct PaddedWithSame<'a> {
 fn simplest() {
     let non_static_string = "foobar".to_string();
 
-    let simplest = Simplest { field: Cow::Borrowed(&non_static_string) };
+    let simplest = Simplest {
+        field: Cow::Borrowed(&non_static_string),
+    };
 
     accepts_only_static(simplest.into_owned());
 }

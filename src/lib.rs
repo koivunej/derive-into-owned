@@ -83,7 +83,7 @@ fn impl_with_generator<G: BodyGenerator>(ast: &syn::DeriveInput, gen: G) -> quot
 
     let borrowed_params = gen.quote_borrowed_params(ast);
     let borrowed = if borrowed_params.is_empty() {
-        quote! { }
+        quote! {}
     } else {
         quote! { < #(#borrowed_params),* > }
     };
@@ -95,10 +95,9 @@ fn impl_with_generator<G: BodyGenerator>(ast: &syn::DeriveInput, gen: G) -> quot
         quote! { < #(#params),* > }
     };
 
-
     let owned_params = gen.quote_rhs_params(ast);
     let owned = if owned_params.is_empty() {
-        quote! { }
+        quote! {}
     } else {
         quote! { < #(#owned_params),* > }
     };
@@ -107,17 +106,16 @@ fn impl_with_generator<G: BodyGenerator>(ast: &syn::DeriveInput, gen: G) -> quot
         syn::Body::Struct(ref variant) => {
             let inner = gen.visit_struct(variant);
             quote! { #name #inner }
-        },
+        }
         syn::Body::Enum(ref body) => {
-            let cases = body.iter()
-                .map(|case| {
-                    let unqualified_ident = &case.ident;
-                    let ident = quote! { #name::#unqualified_ident };
+            let cases = body.iter().map(|case| {
+                let unqualified_ident = &case.ident;
+                let ident = quote! { #name::#unqualified_ident };
 
-                    gen.visit_enum_data(ident, &case.data)
-                });
+                gen.visit_enum_data(ident, &case.data)
+            });
             quote! { match self { #(#cases),* } }
-        },
+        }
     };
 
     gen.combine_impl(borrowed, name, params, owned, body)
@@ -125,56 +123,71 @@ fn impl_with_generator<G: BodyGenerator>(ast: &syn::DeriveInput, gen: G) -> quot
 
 /// Probably not the best abstraction
 trait BodyGenerator {
-
     fn quote_borrowed_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
         let borrowed_lifetime_params = ast.generics.lifetimes.iter().map(|alpha| quote! { #alpha });
         let borrowed_type_params = ast.generics.ty_params.iter().map(|ty| quote! { #ty });
-        borrowed_lifetime_params.chain(borrowed_type_params).collect::<Vec<_>>()
+        borrowed_lifetime_params
+            .chain(borrowed_type_params)
+            .collect::<Vec<_>>()
     }
 
     fn quote_type_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
-        ast.generics.lifetimes.iter().map(|alpha| quote! { #alpha }).chain(
-            ast.generics.ty_params.iter().map(|ty| { let ident = &ty.ident; quote! { #ident } })
-        ).collect::<Vec<_>>()
+        ast.generics
+            .lifetimes
+            .iter()
+            .map(|alpha| quote! { #alpha })
+            .chain(ast.generics.ty_params.iter().map(|ty| {
+                let ident = &ty.ident;
+                quote! { #ident }
+            }))
+            .collect::<Vec<_>>()
     }
 
     fn quote_rhs_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
         let owned_lifetime_params = ast.generics.lifetimes.iter().map(|_| quote! { 'static });
-        let owned_type_params = ast.generics.ty_params.iter().map(|ty| { let ident = &ty.ident; quote! { #ident } });
-        owned_lifetime_params.chain(owned_type_params).collect::<Vec<_>>()
+        let owned_type_params = ast.generics.ty_params.iter().map(|ty| {
+            let ident = &ty.ident;
+            quote! { #ident }
+        });
+        owned_lifetime_params
+            .chain(owned_type_params)
+            .collect::<Vec<_>>()
     }
 
     fn visit_struct(&self, data: &syn::VariantData) -> quote::Tokens;
     fn visit_enum_data(&self, variant: quote::Tokens, data: &syn::VariantData) -> quote::Tokens;
-    fn combine_impl(&self, borrows: quote::Tokens, name: &syn::Ident, rhs_params: quote::Tokens, owned: quote::Tokens, body: quote::Tokens) -> quote::Tokens;
+    fn combine_impl(
+        &self,
+        borrows: quote::Tokens,
+        name: &syn::Ident,
+        rhs_params: quote::Tokens,
+        owned: quote::Tokens,
+        body: quote::Tokens,
+    ) -> quote::Tokens;
 }
 
 struct IntoOwnedGen;
 
 impl BodyGenerator for IntoOwnedGen {
-
     fn visit_struct(&self, data: &syn::VariantData) -> quote::Tokens {
         match *data {
             syn::VariantData::Struct(ref body) => {
-                let fields = body.iter()
-                    .map(|field| {
-                        let ident = field.ident.as_ref().unwrap();
-                        let field_ref = quote! { self.#ident };
-                        let code = FieldKind::resolve(field).move_or_clone_field(&field_ref);
-                        quote! { #ident: #code }
-                    });
+                let fields = body.iter().map(|field| {
+                    let ident = field.ident.as_ref().unwrap();
+                    let field_ref = quote! { self.#ident };
+                    let code = FieldKind::resolve(field).move_or_clone_field(&field_ref);
+                    quote! { #ident: #code }
+                });
                 quote! { { #(#fields),* } }
-            },
+            }
             syn::VariantData::Tuple(ref body) => {
-                let fields = body.iter()
-                    .enumerate()
-                    .map(|(index, field)| {
-                        let index = syn::Ident::from(index);
-                        let index = quote! { self.#index };
-                        FieldKind::resolve(field).move_or_clone_field(&index)
-                    });
+                let fields = body.iter().enumerate().map(|(index, field)| {
+                    let index = syn::Ident::from(index);
+                    let index = quote! { self.#index };
+                    FieldKind::resolve(field).move_or_clone_field(&index)
+                });
                 quote! { ( #(#fields),* ) }
-            },
+            }
             syn::VariantData::Unit => {
                 quote! {}
             }
@@ -184,36 +197,43 @@ impl BodyGenerator for IntoOwnedGen {
     fn visit_enum_data(&self, ident: quote::Tokens, data: &syn::VariantData) -> quote::Tokens {
         match *data {
             syn::VariantData::Struct(ref body) => {
-                let idents = body.iter()
-                    .map(|field| field.ident.as_ref().unwrap());
-                let cloned = body.iter()
-                    .map(|field| {
-                        let ident = field.ident.as_ref().unwrap();
-                        let ident = quote! { #ident };
-                        let code = FieldKind::resolve(field).move_or_clone_field(&ident);
-                        quote! { #ident: #code }
-                    });
+                let idents = body.iter().map(|field| field.ident.as_ref().unwrap());
+                let cloned = body.iter().map(|field| {
+                    let ident = field.ident.as_ref().unwrap();
+                    let ident = quote! { #ident };
+                    let code = FieldKind::resolve(field).move_or_clone_field(&ident);
+                    quote! { #ident: #code }
+                });
                 quote! { #ident { #(#idents),* } => #ident { #(#cloned),* } }
-            },
+            }
             syn::VariantData::Tuple(ref body) => {
                 let idents = (0..body.len())
                     .map(|index| syn::Ident::from(format!("x{}", index)))
                     .collect::<Vec<_>>();
-                let cloned = idents.iter().zip(body.iter())
+                let cloned = idents
+                    .iter()
+                    .zip(body.iter())
                     .map(|(ident, field)| {
                         let ident = quote! { #ident };
                         FieldKind::resolve(field).move_or_clone_field(&ident)
                     })
                     .collect::<Vec<_>>();
                 quote! { #ident ( #(#idents),* ) => #ident ( #(#cloned),* ) }
-            },
+            }
             syn::VariantData::Unit => {
                 quote! { #ident => #ident }
-            },
+            }
         }
     }
 
-    fn combine_impl(&self, borrowed: quote::Tokens, name: &syn::Ident, params: quote::Tokens, owned: quote::Tokens, body: quote::Tokens) -> quote::Tokens {
+    fn combine_impl(
+        &self,
+        borrowed: quote::Tokens,
+        name: &syn::Ident,
+        params: quote::Tokens,
+        owned: quote::Tokens,
+        body: quote::Tokens,
+    ) -> quote::Tokens {
         quote! {
             impl #borrowed #name #params {
                 /// Returns a version of `self` with all fields converted to owning versions.
@@ -226,35 +246,40 @@ impl BodyGenerator for IntoOwnedGen {
 struct BorrowedGen;
 
 impl BodyGenerator for BorrowedGen {
-
     fn quote_rhs_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
-        let owned_lifetime_params = ast.generics.lifetimes.iter().map(|_| quote! { '__borrowedgen });
-        let owned_type_params = ast.generics.ty_params.iter().map(|ty| { let ident = &ty.ident; quote! { #ident } });
-        owned_lifetime_params.chain(owned_type_params).collect::<Vec<_>>()
+        let owned_lifetime_params = ast
+            .generics
+            .lifetimes
+            .iter()
+            .map(|_| quote! { '__borrowedgen });
+        let owned_type_params = ast.generics.ty_params.iter().map(|ty| {
+            let ident = &ty.ident;
+            quote! { #ident }
+        });
+        owned_lifetime_params
+            .chain(owned_type_params)
+            .collect::<Vec<_>>()
     }
 
     fn visit_struct(&self, data: &syn::VariantData) -> quote::Tokens {
         match *data {
             syn::VariantData::Struct(ref body) => {
-                let fields = body.iter()
-                    .map(|field| {
-                        let ident = field.ident.as_ref().unwrap();
-                        let field_ref = quote! { self.#ident };
-                        let code = FieldKind::resolve(field).borrow_or_clone(&field_ref);
-                        quote! { #ident: #code }
-                    });
+                let fields = body.iter().map(|field| {
+                    let ident = field.ident.as_ref().unwrap();
+                    let field_ref = quote! { self.#ident };
+                    let code = FieldKind::resolve(field).borrow_or_clone(&field_ref);
+                    quote! { #ident: #code }
+                });
                 quote! { { #(#fields),* } }
-            },
+            }
             syn::VariantData::Tuple(ref body) => {
-                let fields = body.iter()
-                    .enumerate()
-                    .map(|(index, field)| {
-                        let index = syn::Ident::from(index);
-                        let index = quote! { self.#index };
-                        FieldKind::resolve(field).borrow_or_clone(&index)
-                    });
+                let fields = body.iter().enumerate().map(|(index, field)| {
+                    let index = syn::Ident::from(index);
+                    let index = quote! { self.#index };
+                    FieldKind::resolve(field).borrow_or_clone(&index)
+                });
                 quote! { ( #(#fields),* ) }
-            },
+            }
             syn::VariantData::Unit => {
                 quote! {}
             }
@@ -264,36 +289,43 @@ impl BodyGenerator for BorrowedGen {
     fn visit_enum_data(&self, ident: quote::Tokens, data: &syn::VariantData) -> quote::Tokens {
         match *data {
             syn::VariantData::Struct(ref body) => {
-                let idents = body.iter()
-                    .map(|field| field.ident.as_ref().unwrap());
-                let cloned = body.iter()
-                    .map(|field| {
-                        let ident = field.ident.as_ref().unwrap();
-                        let ident = quote! { #ident };
-                        let code = FieldKind::resolve(field).borrow_or_clone(&ident);
-                        quote! { #ident: #code }
-                    });
+                let idents = body.iter().map(|field| field.ident.as_ref().unwrap());
+                let cloned = body.iter().map(|field| {
+                    let ident = field.ident.as_ref().unwrap();
+                    let ident = quote! { #ident };
+                    let code = FieldKind::resolve(field).borrow_or_clone(&ident);
+                    quote! { #ident: #code }
+                });
                 quote! { #ident { #(ref #idents),* } => #ident { #(#cloned),* } }
-            },
+            }
             syn::VariantData::Tuple(ref body) => {
                 let idents = (0..body.len())
                     .map(|index| syn::Ident::from(format!("x{}", index)))
                     .collect::<Vec<_>>();
-                let cloned = idents.iter().zip(body.iter())
+                let cloned = idents
+                    .iter()
+                    .zip(body.iter())
                     .map(|(ident, field)| {
                         let ident = quote! { #ident };
                         FieldKind::resolve(field).borrow_or_clone(&ident)
                     })
                     .collect::<Vec<_>>();
                 quote! { #ident ( #(ref #idents),* ) => #ident ( #(#cloned),* ) }
-            },
+            }
             syn::VariantData::Unit => {
                 quote! { #ident => #ident }
-            },
+            }
         }
     }
 
-    fn combine_impl(&self, borrowed: quote::Tokens, name: &syn::Ident, params: quote::Tokens, owned: quote::Tokens, body: quote::Tokens) -> quote::Tokens {
+    fn combine_impl(
+        &self,
+        borrowed: quote::Tokens,
+        name: &syn::Ident,
+        params: quote::Tokens,
+        owned: quote::Tokens,
+        body: quote::Tokens,
+    ) -> quote::Tokens {
         quote! {
             impl #borrowed #name #params {
                 /// Returns a clone of `self` that shares all the "Cow-alike" data with `self`.
@@ -309,11 +341,10 @@ enum FieldKind {
     /// Option fields with either PlainCow or AssumedCow
     OptField(usize, Box<FieldKind>),
     IterableField(Box<FieldKind>),
-    JustMoved
+    JustMoved,
 }
 
 impl FieldKind {
-
     fn resolve(field: &syn::Field) -> Self {
         match field.ty {
             syn::Ty::Path(None, syn::Path { ref segments, .. }) => {
@@ -328,7 +359,7 @@ impl FieldKind {
                 } else {
                     FieldKind::JustMoved
                 }
-            },
+            }
             _ => FieldKind::JustMoved,
         }
     }
@@ -380,7 +411,7 @@ impl FieldKind {
                 }
 
                 quote! { #var.as_ref().map(|#next| #tokens) }
-            },
+            }
             IterableField(ref inner) => {
                 let next = syn::Ident::from("x");
                 let next = quote! { #next };
@@ -395,9 +426,12 @@ impl FieldKind {
 }
 
 fn type_hopefully_is(segments: &[syn::PathSegment], expected: &str) -> bool {
-    let expected = expected.split("::").map(syn::Ident::from).collect::<Vec<_>>();
+    let expected = expected
+        .split("::")
+        .map(syn::Ident::from)
+        .collect::<Vec<_>>();
     if segments.len() > expected.len() {
-        return false
+        return false;
     }
 
     let expected = expected.iter().collect::<Vec<_>>();
@@ -417,7 +451,9 @@ fn is_cow(segments: &[syn::PathSegment]) -> bool {
 }
 
 fn is_cow_alike(segments: &[syn::PathSegment]) -> bool {
-    if let Some(&syn::PathParameters::AngleBracketed(ref data)) = segments.last().map(|x| &x.parameters) {
+    if let Some(&syn::PathParameters::AngleBracketed(ref data)) =
+        segments.last().map(|x| &x.parameters)
+    {
         !data.lifetimes.is_empty()
     } else {
         false
@@ -428,7 +464,11 @@ fn is_opt_cow(mut segments: &[syn::PathSegment]) -> Option<FieldKind> {
     let mut levels = 0;
     loop {
         if type_hopefully_is(segments, "std::option::Option") {
-            if let syn::PathSegment { parameters: syn::PathParameters::AngleBracketed(ref data), .. } = *segments.last().unwrap() {
+            if let syn::PathSegment {
+                parameters: syn::PathParameters::AngleBracketed(ref data),
+                ..
+            } = *segments.last().unwrap()
+            {
                 if !data.lifetimes.is_empty() || !data.bindings.is_empty() {
                     // Option<&'a ?> cannot be moved but let the compiler complain
                     // don't know about data bindings
@@ -441,7 +481,13 @@ fn is_opt_cow(mut segments: &[syn::PathSegment]) -> Option<FieldKind> {
                 }
 
                 match *data.types.first().unwrap() {
-                    syn::Ty::Path(None, syn::Path { segments: ref next_segments, ..}) => {
+                    syn::Ty::Path(
+                        None,
+                        syn::Path {
+                            segments: ref next_segments,
+                            ..
+                        },
+                    ) => {
                         levels += 1;
                         segments = next_segments;
                         continue;
@@ -465,7 +511,11 @@ fn is_iter_field(mut segments: &[syn::PathSegment]) -> Option<FieldKind> {
     loop {
         // this should be easy to do for arrays as well..
         if type_hopefully_is(segments, "std::vec::Vec") {
-            if let syn::PathSegment { parameters: syn::PathParameters::AngleBracketed(ref data), .. } = *segments.last().unwrap() {
+            if let syn::PathSegment {
+                parameters: syn::PathParameters::AngleBracketed(ref data),
+                ..
+            } = *segments.last().unwrap()
+            {
                 if !data.lifetimes.is_empty() || !data.bindings.is_empty() {
                     break;
                 }
@@ -476,7 +526,13 @@ fn is_iter_field(mut segments: &[syn::PathSegment]) -> Option<FieldKind> {
                 }
 
                 match *data.types.first().unwrap() {
-                    syn::Ty::Path(None, syn::Path { segments: ref next_segments, ..}) => {
+                    syn::Ty::Path(
+                        None,
+                        syn::Path {
+                            segments: ref next_segments,
+                            ..
+                        },
+                    ) => {
                         segments = next_segments;
                         continue;
                     }

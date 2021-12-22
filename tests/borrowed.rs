@@ -18,12 +18,16 @@ struct Bar<'a> {
 #[derive(Clone)]
 struct SomeCloneType {
     #[allow(dead_code)]
-    pub foo: u32
+    pub foo: u32,
 }
 
 #[test]
 fn borrowed() {
-    let owned = Foo { a: Cow::Borrowed("str"), b: None }.into_owned();
+    let owned = Foo {
+        a: Cow::Borrowed("str"),
+        b: None,
+    }
+    .into_owned();
 
     let borrowed = owned.borrowed();
 

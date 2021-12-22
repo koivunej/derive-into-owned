@@ -19,7 +19,12 @@ struct Bar<'a> {
 #[test]
 fn vec() {
     let local = "asdf".to_string();
-    let foo = Foo { bees: vec![Bar { s: Cow::Borrowed(&local) }], cees: vec![] };
+    let foo = Foo {
+        bees: vec![Bar {
+            s: Cow::Borrowed(&local),
+        }],
+        cees: vec![],
+    };
     accept_static(foo.into_owned());
 }
 

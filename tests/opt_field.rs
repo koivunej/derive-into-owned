@@ -24,7 +24,9 @@ struct Wilder<'a> {
 fn opt_cow_field() {
     let s = "foobar".to_string();
 
-    let foo = Foo { field: Some(Cow::Borrowed(&s)) };
+    let foo = Foo {
+        field: Some(Cow::Borrowed(&s)),
+    };
     assert_eq!(foo.clone().into_owned(), foo);
     accepts_only_static(foo.into_owned());
 
