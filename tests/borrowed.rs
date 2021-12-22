@@ -17,7 +17,8 @@ struct Bar<'a> {
 
 #[derive(Clone)]
 struct SomeCloneType {
-    foo: u32
+    #[allow(dead_code)]
+    pub foo: u32
 }
 
 #[test]

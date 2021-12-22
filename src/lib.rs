@@ -115,8 +115,7 @@ fn impl_with_generator<G: BodyGenerator>(ast: &syn::DeriveInput, gen: G) -> quot
                     let ident = quote! { #name::#unqualified_ident };
 
                     gen.visit_enum_data(ident, &case.data)
-                })
-                .collect::<Vec<_>>();
+                });
             quote! { match self { #(#cases),* } }
         },
     };
@@ -135,13 +134,13 @@ trait BodyGenerator {
 
     fn quote_type_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
         ast.generics.lifetimes.iter().map(|alpha| quote! { #alpha }).chain(
-            ast.generics.ty_params.iter().map(|ty| { let ref ident = &ty.ident; quote! { #ident } })
+            ast.generics.ty_params.iter().map(|ty| { let ident = &ty.ident; quote! { #ident } })
         ).collect::<Vec<_>>()
     }
 
     fn quote_rhs_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
         let owned_lifetime_params = ast.generics.lifetimes.iter().map(|_| quote! { 'static });
-        let owned_type_params = ast.generics.ty_params.iter().map(|ty| { let ref ident = &ty.ident; quote! { #ident } });
+        let owned_type_params = ast.generics.ty_params.iter().map(|ty| { let ident = &ty.ident; quote! { #ident } });
         owned_lifetime_params.chain(owned_type_params).collect::<Vec<_>>()
     }
 
@@ -163,8 +162,7 @@ impl BodyGenerator for IntoOwnedGen {
                         let field_ref = quote! { self.#ident };
                         let code = FieldKind::resolve(field).move_or_clone_field(&field_ref);
                         quote! { #ident: #code }
-                    })
-                    .collect::<Vec<_>>();
+                    });
                 quote! { { #(#fields),* } }
             },
             syn::VariantData::Tuple(ref body) => {
@@ -174,8 +172,7 @@ impl BodyGenerator for IntoOwnedGen {
                         let index = syn::Ident::from(index);
                         let index = quote! { self.#index };
                         FieldKind::resolve(field).move_or_clone_field(&index)
-                    })
-                    .collect::<Vec<_>>();
+                    });
                 quote! { ( #(#fields),* ) }
             },
             syn::VariantData::Unit => {
@@ -188,16 +185,14 @@ impl BodyGenerator for IntoOwnedGen {
         match *data {
             syn::VariantData::Struct(ref body) => {
                 let idents = body.iter()
-                    .map(|field| field.ident.as_ref().unwrap())
-                    .collect::<Vec<_>>();
+                    .map(|field| field.ident.as_ref().unwrap());
                 let cloned = body.iter()
                     .map(|field| {
-                        let ref ident = field.ident.as_ref().unwrap();
+                        let ident = field.ident.as_ref().unwrap();
                         let ident = quote! { #ident };
                         let code = FieldKind::resolve(field).move_or_clone_field(&ident);
                         quote! { #ident: #code }
-                    })
-                    .collect::<Vec<_>>();
+                    });
                 quote! { #ident { #(#idents),* } => #ident { #(#cloned),* } }
             },
             syn::VariantData::Tuple(ref body) => {
@@ -234,7 +229,7 @@ impl BodyGenerator for BorrowedGen {
 
     fn quote_rhs_params(&self, ast: &syn::DeriveInput) -> Vec<quote::Tokens> {
         let owned_lifetime_params = ast.generics.lifetimes.iter().map(|_| quote! { '__borrowedgen });
-        let owned_type_params = ast.generics.ty_params.iter().map(|ty| { let ref ident = &ty.ident; quote! { #ident } });
+        let owned_type_params = ast.generics.ty_params.iter().map(|ty| { let ident = &ty.ident; quote! { #ident } });
         owned_lifetime_params.chain(owned_type_params).collect::<Vec<_>>()
     }
 
@@ -247,8 +242,7 @@ impl BodyGenerator for BorrowedGen {
                         let field_ref = quote! { self.#ident };
                         let code = FieldKind::resolve(field).borrow_or_clone(&field_ref);
                         quote! { #ident: #code }
-                    })
-                    .collect::<Vec<_>>();
+                    });
                 quote! { { #(#fields),* } }
             },
             syn::VariantData::Tuple(ref body) => {
@@ -258,8 +252,7 @@ impl BodyGenerator for BorrowedGen {
                         let index = syn::Ident::from(index);
                         let index = quote! { self.#index };
                         FieldKind::resolve(field).borrow_or_clone(&index)
-                    })
-                    .collect::<Vec<_>>();
+                    });
                 quote! { ( #(#fields),* ) }
             },
             syn::VariantData::Unit => {
@@ -272,16 +265,14 @@ impl BodyGenerator for BorrowedGen {
         match *data {
             syn::VariantData::Struct(ref body) => {
                 let idents = body.iter()
-                    .map(|field| field.ident.as_ref().unwrap())
-                    .collect::<Vec<_>>();
+                    .map(|field| field.ident.as_ref().unwrap());
                 let cloned = body.iter()
                     .map(|field| {
-                        let ref ident = field.ident.as_ref().unwrap();
+                        let ident = field.ident.as_ref().unwrap();
                         let ident = quote! { #ident };
                         let code = FieldKind::resolve(field).borrow_or_clone(&ident);
                         quote! { #ident: #code }
-                    })
-                    .collect::<Vec<_>>();
+                    });
                 quote! { #ident { #(ref #idents),* } => #ident { #(#cloned),* } }
             },
             syn::VariantData::Tuple(ref body) => {
@@ -324,8 +315,8 @@ enum FieldKind {
 impl FieldKind {
 
     fn resolve(field: &syn::Field) -> Self {
-        match &field.ty {
-            &syn::Ty::Path(None, syn::Path { ref segments, .. }) => {
+        match field.ty {
+            syn::Ty::Path(None, syn::Path { ref segments, .. }) => {
                 if is_cow(segments) {
                     FieldKind::PlainCow
                 } else if is_cow_alike(segments) {
@@ -345,10 +336,10 @@ impl FieldKind {
     fn move_or_clone_field(&self, var: &quote::Tokens) -> quote::Tokens {
         use self::FieldKind::*;
 
-        match self {
-            &PlainCow => quote! { ::std::borrow::Cow::Owned(#var.into_owned()) },
-            &AssumedCow => quote! { #var.into_owned() },
-            &OptField(levels, ref inner) => {
+        match *self {
+            PlainCow => quote! { ::std::borrow::Cow::Owned(#var.into_owned()) },
+            AssumedCow => quote! { #var.into_owned() },
+            OptField(levels, ref inner) => {
                 let next = syn::Ident::from("val");
                 let next = quote! { #next };
 
@@ -360,7 +351,7 @@ impl FieldKind {
 
                 quote! { #var.map(|#next| #tokens) }
             }
-            &IterableField(ref inner) => {
+            IterableField(ref inner) => {
                 let next = syn::Ident::from("x");
                 let next = quote! { #next };
 
@@ -368,17 +359,17 @@ impl FieldKind {
 
                 quote! { #var.into_iter().map(|x| #tokens).collect() }
             }
-            &JustMoved => quote! { #var },
+            JustMoved => quote! { #var },
         }
     }
 
     fn borrow_or_clone(&self, var: &quote::Tokens) -> quote::Tokens {
         use self::FieldKind::*;
 
-        match self {
-            &PlainCow => quote! { ::std::borrow::Cow::Borrowed(#var.as_ref()) },
-            &AssumedCow => quote! { #var.borrowed() },
-            &OptField(levels, ref inner) => {
+        match *self {
+            PlainCow => quote! { ::std::borrow::Cow::Borrowed(#var.as_ref()) },
+            AssumedCow => quote! { #var.borrowed() },
+            OptField(levels, ref inner) => {
                 let next = syn::Ident::from("val");
                 let next = quote! { #next };
 
@@ -390,7 +381,7 @@ impl FieldKind {
 
                 quote! { #var.as_ref().map(|#next| #tokens) }
             },
-            &IterableField(ref inner) => {
+            IterableField(ref inner) => {
                 let next = syn::Ident::from("x");
                 let next = quote! { #next };
 
@@ -398,22 +389,22 @@ impl FieldKind {
 
                 quote! { #var.iter().map(|x| #tokens).collect() }
             }
-            &JustMoved => quote! { #var.clone() },
+            JustMoved => quote! { #var.clone() },
         }
     }
 }
 
-fn type_hopefully_is(segments: &Vec<syn::PathSegment>, expected: &str) -> bool {
+fn type_hopefully_is(segments: &[syn::PathSegment], expected: &str) -> bool {
     let expected = expected.split("::").map(syn::Ident::from).collect::<Vec<_>>();
     if segments.len() > expected.len() {
         return false
     }
 
-    let expected = expected.iter().map(|x| x).collect::<Vec<_>>();
+    let expected = expected.iter().collect::<Vec<_>>();
     let segments = segments.iter().map(|x| &x.ident).collect::<Vec<_>>();
 
     for len in 0..expected.len() {
-        if &segments[..] == &expected[expected.len() - len - 1..] {
+        if segments[..] == expected[expected.len() - len - 1..] {
             return true;
         }
     }
@@ -421,11 +412,11 @@ fn type_hopefully_is(segments: &Vec<syn::PathSegment>, expected: &str) -> bool {
     false
 }
 
-fn is_cow(segments: &Vec<syn::PathSegment>) -> bool {
+fn is_cow(segments: &[syn::PathSegment]) -> bool {
     type_hopefully_is(segments, "std::borrow::Cow")
 }
 
-fn is_cow_alike(segments: &Vec<syn::PathSegment>) -> bool {
+fn is_cow_alike(segments: &[syn::PathSegment]) -> bool {
     if let Some(&syn::PathParameters::AngleBracketed(ref data)) = segments.last().map(|x| &x.parameters) {
         !data.lifetimes.is_empty()
     } else {
@@ -433,33 +424,30 @@ fn is_cow_alike(segments: &Vec<syn::PathSegment>) -> bool {
     }
 }
 
-fn is_opt_cow(mut segments: &Vec<syn::PathSegment>) -> Option<FieldKind> {
+fn is_opt_cow(mut segments: &[syn::PathSegment]) -> Option<FieldKind> {
     let mut levels = 0;
     loop {
         if type_hopefully_is(segments, "std::option::Option") {
-            match *segments.last().unwrap() {
-                syn::PathSegment { parameters: syn::PathParameters::AngleBracketed(ref data), .. } => {
-                    if !data.lifetimes.is_empty() || !data.bindings.is_empty() {
-                        // Option<&'a ?> cannot be moved but let the compiler complain
-                        // don't know about data bindings
-                        break;
-                    }
+            if let syn::PathSegment { parameters: syn::PathParameters::AngleBracketed(ref data), .. } = *segments.last().unwrap() {
+                if !data.lifetimes.is_empty() || !data.bindings.is_empty() {
+                    // Option<&'a ?> cannot be moved but let the compiler complain
+                    // don't know about data bindings
+                    break;
+                }
 
-                    if data.types.len() != 1 {
-                        // Option<A, B> probably means some other, movable option
-                        break;
-                    }
+                if data.types.len() != 1 {
+                    // Option<A, B> probably means some other, movable option
+                    break;
+                }
 
-                    match *data.types.first().unwrap() {
-                        syn::Ty::Path(None, syn::Path { segments: ref next_segments, ..}) => {
-                            levels += 1;
-                            segments = next_segments;
-                            continue;
-                        }
-                        _ => break,
+                match *data.types.first().unwrap() {
+                    syn::Ty::Path(None, syn::Path { segments: ref next_segments, ..}) => {
+                        levels += 1;
+                        segments = next_segments;
+                        continue;
                     }
-                },
-                _ => {}
+                    _ => break,
+                }
             }
         } else if is_cow(segments) {
             return Some(FieldKind::OptField(levels, Box::new(FieldKind::PlainCow)));
@@ -473,30 +461,27 @@ fn is_opt_cow(mut segments: &Vec<syn::PathSegment>) -> Option<FieldKind> {
     None
 }
 
-fn is_iter_field(mut segments: &Vec<syn::PathSegment>) -> Option<FieldKind> {
+fn is_iter_field(mut segments: &[syn::PathSegment]) -> Option<FieldKind> {
     loop {
         // this should be easy to do for arrays as well..
         if type_hopefully_is(segments, "std::vec::Vec") {
-            match *segments.last().unwrap() {
-                syn::PathSegment { parameters: syn::PathParameters::AngleBracketed(ref data), .. } => {
-                    if !data.lifetimes.is_empty() || !data.bindings.is_empty() {
-                        break;
-                    }
+            if let syn::PathSegment { parameters: syn::PathParameters::AngleBracketed(ref data), .. } = *segments.last().unwrap() {
+                if !data.lifetimes.is_empty() || !data.bindings.is_empty() {
+                    break;
+                }
 
-                    if data.types.len() != 1 {
-                        // TODO: this could be something like Vec<(u32, Bar<'a>)>?
-                        break;
-                    }
+                if data.types.len() != 1 {
+                    // TODO: this could be something like Vec<(u32, Bar<'a>)>?
+                    break;
+                }
 
-                    match *data.types.first().unwrap() {
-                        syn::Ty::Path(None, syn::Path { segments: ref next_segments, ..}) => {
-                            segments = next_segments;
-                            continue;
-                        }
-                        _ => break,
+                match *data.types.first().unwrap() {
+                    syn::Ty::Path(None, syn::Path { segments: ref next_segments, ..}) => {
+                        segments = next_segments;
+                        continue;
                     }
-                },
-                _ => {}
+                    _ => break,
+                }
             }
         } else if is_cow(segments) {
             return Some(FieldKind::IterableField(Box::new(FieldKind::PlainCow)));
