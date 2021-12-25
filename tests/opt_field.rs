@@ -24,14 +24,14 @@ struct Wilder<'a> {
 fn opt_cow_field() {
     let s = "foobar".to_string();
 
-    let foo = Foo {
+    let thing = Foo {
         field: Some(Cow::Borrowed(&s)),
     };
-    assert_eq!(foo.clone().into_owned(), foo);
-    accepts_only_static(foo.into_owned());
+    assert_eq!(thing.clone().into_owned(), thing);
+    accepts_only_static(thing.into_owned());
 
-    let foo = Foo { field: None };
-    accepts_only_static(foo.into_owned());
+    let thing = Foo { field: None };
+    accepts_only_static(thing.into_owned());
 }
 
 fn accepts_only_static<T: 'static>(anything: T) {

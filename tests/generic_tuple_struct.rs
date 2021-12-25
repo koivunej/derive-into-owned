@@ -11,15 +11,15 @@ struct Foo<'a, T: 'a + ToOwned + ?Sized>(Cow<'a, T>);
 fn tuple_struct() {
     let non_static_string: String = "foobar".to_string();
 
-    let foo = Foo(Cow::Borrowed(&non_static_string));
+    let thing = Foo(Cow::Borrowed(&non_static_string));
 
-    accepts_only_static(foo.into_owned());
+    accepts_only_static(thing.into_owned());
 
     let non_static_vec: Vec<u8> = vec![0u8; 8];
 
-    let foo = Foo(Cow::Borrowed(&non_static_vec[..]));
+    let thing = Foo(Cow::Borrowed(&non_static_vec[..]));
 
-    accepts_only_static(foo.into_owned());
+    accepts_only_static(thing.into_owned());
 }
 
 fn accepts_only_static<T: ToOwned + 'static + ?Sized>(static_foo: Foo<'static, T>) {

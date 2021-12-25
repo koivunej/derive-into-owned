@@ -6,7 +6,7 @@ extern crate derive_into_owned;
 use std::borrow::Cow;
 
 #[derive(IntoOwned, Borrowed)]
-struct Foo<'a> {
+struct Thing<'a> {
     bees: Vec<Bar<'a>>,
     cees: Vec<Cow<'a, str>>,
 }
@@ -19,15 +19,15 @@ struct Bar<'a> {
 #[test]
 fn vec() {
     let local = "asdf".to_string();
-    let foo = Foo {
+    let thing = Thing {
         bees: vec![Bar {
             s: Cow::Borrowed(&local),
         }],
         cees: vec![],
     };
-    accept_static(foo.into_owned());
+    accept_static(thing.into_owned());
 }
 
-fn accept_static(foo: Foo<'static>) {
-    drop(foo);
+fn accept_static(thing: Thing<'static>) {
+    drop(thing);
 }

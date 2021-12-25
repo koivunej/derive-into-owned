@@ -18,7 +18,7 @@ struct Bar<'a> {
 #[derive(Clone)]
 struct SomeCloneType {
     #[allow(dead_code)]
-    pub foo: u32,
+    foo: u32,
 }
 
 #[test]
@@ -37,5 +37,6 @@ fn borrowed() {
 
 fn test<'b, 'a: 'b>(lives_longer: &Foo<'a>, lives_less: Foo<'b>) {
     drop(lives_less);
+    #[allow(clippy::drop_ref)]
     drop(lives_longer);
 }
