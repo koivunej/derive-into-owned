@@ -224,13 +224,12 @@ impl BodyGenerator for IntoOwnedGen {
             });
             quote! { #ident { #(#named_fields),* } => #ident { #(#cloned),* } }
         } else {
-            let abc = |i| ('a'..='z').nth(i);
             let unnamed_fields = &variant
                 .fields
                 .iter()
                 .enumerate()
                 .filter(|(_, field)| field.ident.is_none())
-                .map(|(index, _)| format_ident!("{}", abc(index).expect("so many indexes")))
+                .map(|(index, _)| format_ident!("arg_{}", index))
                 .collect::<Vec<_>>();
 
             let cloned = unnamed_fields
