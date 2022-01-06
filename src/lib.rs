@@ -179,7 +179,7 @@ impl BodyGenerator for IntoOwnedGen {
             .iter()
             .next()
             .map(|field| field.ident.is_some())
-            .expect("empty struct? yes, just default to true or false here");
+            .unwrap_or(false); // handle empty unit structs as tuples
 
         if fields_are_named {
             let fields = data.fields.iter().map(|field| {
