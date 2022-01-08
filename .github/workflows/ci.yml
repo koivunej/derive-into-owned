@@ -30,11 +30,9 @@ jobs:
         run: cargo build --all-features --all-targets
 
       - name: Cargo fmt
-        continue-on-error: true
         run: cargo fmt --all -- --check
 
       - name: Cargo clippy
-        continue-on-error: true
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Test
