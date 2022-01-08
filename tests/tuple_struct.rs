@@ -25,9 +25,9 @@ struct Dar<'a>(borrow::Cow<'a, str>);
 fn tuple_struct() {
     let non_static_string: String = "foobar".to_string();
 
-    let foo = Foo(Cow::Borrowed(&non_static_string));
+    let thing = Foo(Cow::Borrowed(&non_static_string));
 
-    accepts_only_static(foo.into_owned());
+    accepts_only_static(thing.into_owned());
 }
 
 fn accepts_only_static(static_foo: Foo<'static>) {

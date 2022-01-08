@@ -14,11 +14,11 @@ fn enum_with_only_cow_variants() {
     let s = "foobar".to_string();
     let v = b"12345234".to_vec();
 
-    let foo = Foo::Str(Cow::Borrowed(&s));
-    accepts_only_static(foo.into_owned());
+    let thing = Foo::Str(Cow::Borrowed(&s));
+    accepts_only_static(thing.into_owned());
 
-    let foo = Foo::Bytes(Cow::Borrowed(&v[..]));
-    accepts_only_static(foo.into_owned());
+    let thing = Foo::Bytes(Cow::Borrowed(&v[..]));
+    accepts_only_static(thing.into_owned());
 }
 
 fn accepts_only_static<T: 'static>(anything: T) {
