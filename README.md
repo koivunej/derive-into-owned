@@ -4,7 +4,11 @@
 [![crates.io](https://img.shields.io/crates/v/derive-into-owned.svg)](https://crates.io/crates/derive-into-owned)
 [![docs.rs](https://docs.rs/derive-into-owned/badge.svg)](https://docs.rs/derive-into-owned/)
 
-Rust procedural macros for deriving methods to help with working with types that contain [`Cow`](https://doc.rust-lang.org/std/borrow/enum.Cow.html) fields. `[derive(IntoOwned)]` generates a method similar to:
+Rust procedural macros for deriving methods to help with working with types that contain [`Cow`](https://doc.rust-lang.org/std/borrow/enum.Cow.html) fields.
+Please note that this derive somewhat strangely works with duck-typing, at least for now.
+It was originally created to help me reduce the boilerplate with `Cow` types.
+
+`[derive(IntoOwned)]` generates a method similar to:
 
 ```rust
 use std::borrow::Cow;
@@ -23,7 +27,7 @@ impl<'a> Foo<'a> {
 }
 ```
 
-Currently it is just an edited version of [deep-clone-derive](https://github.com/asajeffrey/deep-clone/blob/master/deep-clone-derive/lib.rs) example but supports:
+Originally based off of [deep-clone-derive](https://github.com/asajeffrey/deep-clone/blob/master/deep-clone-derive/lib.rs) example but supports:
 
  * [tuple structs](./tests/tuple_struct.rs)
  * normal [structs](./tests/struct.rs)
@@ -47,6 +51,8 @@ impl<'a> Foo<'a> {
 ## Types with lifetimes
 
 If your struct has a field with type `Bar<'a>` then `Bar` is assumed to have a method `fn into_owned(self) -> Bar<'static>`.
+
+Note, there's no trait implementation expected because I didn't find one at the time and didn't think to create my own, assumed the `Cow::into_owned` might be getting an extension in standard library which never happened and so on.
 
 ## Limitations
 
