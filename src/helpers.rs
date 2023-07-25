@@ -31,10 +31,12 @@ pub fn has_binding_arguments(segments: &[syn::PathSegment]) -> bool {
     if let Some(&syn::PathArguments::AngleBracketed(ref generics)) =
         segments.last().map(|x| &x.arguments)
     {
-        generics
-            .args
-            .iter()
-            .any(|f| matches!(f, syn::GenericArgument::Binding(_)))
+        generics.args.iter().any(|f| {
+            matches!(
+                f,
+                syn::GenericArgument::AssocConst(_) | syn::GenericArgument::AssocType(_)
+            )
+        })
     } else {
         false
     }
