@@ -1,10 +1,10 @@
 use quote::{format_ident, quote};
+use syn::Path;
 
 use crate::helpers::{collect_segments, is_cow, is_cow_alike, is_iter_field, is_opt_cow};
 
-#[derive(Debug)]
 pub enum FieldKind {
-    PlainCow,
+    PlainCow(Path),
     AssumedCow,
     /// Option fields with either PlainCow or AssumedCow
     OptField(usize, Box<FieldKind>),
@@ -14,13 +14,16 @@ pub enum FieldKind {
 impl FieldKind {
     pub fn resolve(ty: &syn::Type) -> Self {
         if let syn::Type::Path(syn::TypePath { ref path, .. }) = ty {
-            if is_cow(&collect_segments(path)) {
-                FieldKind::PlainCow
-            } else if is_cow_alike(&collect_segments(path)) {
+            let segments = collect_segments(path);
+            if is_cow(&segments) {
+                let mut path = path.clone();
+                path.segments.last_mut().unwrap().arguments = syn::PathArguments::None;
+                FieldKind::PlainCow(path)
+            } else if is_cow_alike(&segments) {
                 FieldKind::AssumedCow
-            } else if let Some(kind) = is_opt_cow(collect_segments(path)) {
+            } else if let Some(kind) = is_opt_cow(path) {
                 kind
-            } else if let Some(kind) = is_iter_field(collect_segments(path)) {
+            } else if let Some(kind) = is_iter_field(path) {
                 kind
             } else {
                 FieldKind::JustMoved
@@ -34,7 +37,7 @@ impl FieldKind {
         use self::FieldKind::*;
 
         match *self {
-            PlainCow => quote! { ::std::borrow::Cow::Owned(#var.into_owned()) },
+            PlainCow(ref path) => quote! { #path::Owned(#var.into_owned()) },
             AssumedCow => quote! { #var.into_owned() },
             OptField(levels, ref inner) => {
                 let next = format_ident!("val");
@@ -64,7 +67,7 @@ impl FieldKind {
         use self::FieldKind::*;
 
         match *self {
-            PlainCow => quote! { ::std::borrow::Cow::Borrowed(#var.as_ref()) },
+            PlainCow(ref path) => quote! { #path::Borrowed(#var.as_ref()) },
             AssumedCow => quote! { #var.borrowed() },
             OptField(levels, ref inner) => {
                 let next = format_ident!("val");

@@ -64,7 +64,10 @@ fn type_hopefully_is(segments: &[syn::PathSegment], expected: &str) -> bool {
 }
 
 pub fn is_cow(segments: &[syn::PathSegment]) -> bool {
-    type_hopefully_is(segments, "std::borrow::Cow")
+    match segments.last() {
+        Some(syn::PathSegment { ident, .. }) => ident == "Cow",
+        _ => false,
+    }
 }
 
 pub fn is_cow_alike(segments: &[syn::PathSegment]) -> bool {
@@ -79,14 +82,16 @@ pub fn collect_segments(path: &syn::Path) -> Vec<syn::PathSegment> {
     path.segments.iter().cloned().collect::<Vec<_>>()
 }
 
-pub fn is_opt_cow(mut segments: Vec<syn::PathSegment>) -> Option<FieldKind> {
+pub fn is_opt_cow(path: &syn::Path) -> Option<FieldKind> {
     let mut levels = 0;
+    let mut path = path.clone();
     loop {
+        let segments = collect_segments(&path);
         if type_hopefully_is(&segments, "std::option::Option") {
             if let syn::PathSegment {
                 arguments: syn::PathArguments::AngleBracketed(ref data),
                 ..
-            } = *segments.last().expect("last segment")
+            } = segments.last().expect("last segment")
             {
                 if has_lifetime_arguments(&segments) || has_binding_arguments(&segments) {
                     // Option<&'a ?> cannot be moved but let the compiler complain
@@ -102,18 +107,22 @@ pub fn is_opt_cow(mut segments: Vec<syn::PathSegment>) -> Option<FieldKind> {
                 match *data.args.first().expect("first arg") {
                     syn::GenericArgument::Type(syn::Type::Path(syn::TypePath {
                         // segments: ref next_segments,
-                        ref path,
+                        path: ref p,
                         ..
                     })) => {
                         levels += 1;
-                        segments = collect_segments(path);
+                        path = p.clone();
                         continue;
                     }
                     _ => break,
                 }
             }
         } else if is_cow(&segments) {
-            return Some(FieldKind::OptField(levels, Box::new(FieldKind::PlainCow)));
+            path.segments.last_mut().unwrap().arguments = syn::PathArguments::None;
+            return Some(FieldKind::OptField(
+                levels,
+                Box::new(FieldKind::PlainCow(path)),
+            ));
         } else if is_cow_alike(&segments) {
             return Some(FieldKind::OptField(levels, Box::new(FieldKind::AssumedCow)));
         }
@@ -124,14 +133,16 @@ pub fn is_opt_cow(mut segments: Vec<syn::PathSegment>) -> Option<FieldKind> {
     None
 }
 
-pub fn is_iter_field(mut segments: Vec<syn::PathSegment>) -> Option<FieldKind> {
+pub fn is_iter_field(path: &syn::Path) -> Option<FieldKind> {
+    let mut path = path.clone();
     loop {
+        let segments = collect_segments(&path);
         // this should be easy to do for arrays as well..
         if type_hopefully_is(&segments, "std::vec::Vec") {
             if let syn::PathSegment {
                 arguments: syn::PathArguments::AngleBracketed(ref data),
                 ..
-            } = *segments.last().expect("last segment")
+            } = segments.last().expect("last segment")
             {
                 if has_lifetime_arguments(&segments) || has_binding_arguments(&segments) {
                     break;
@@ -146,17 +157,20 @@ pub fn is_iter_field(mut segments: Vec<syn::PathSegment>) -> Option<FieldKind> {
                 match *data.args.first().expect("first arg") {
                     syn::GenericArgument::Type(syn::Type::Path(syn::TypePath {
                         // segments: ref next_segments,
-                        ref path,
+                        path: ref p,
                         ..
                     })) => {
-                        segments = collect_segments(path);
+                        path = p.clone();
                         continue;
                     }
                     _ => break,
                 }
             }
         } else if is_cow(&segments) {
-            return Some(FieldKind::IterableField(Box::new(FieldKind::PlainCow)));
+            path.segments.last_mut().unwrap().arguments = syn::PathArguments::None;
+            return Some(FieldKind::IterableField(Box::new(FieldKind::PlainCow(
+                path,
+            ))));
         } else if is_cow_alike(&segments) {
             return Some(FieldKind::IterableField(Box::new(FieldKind::AssumedCow)));
         }
