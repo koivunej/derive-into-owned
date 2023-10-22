@@ -37,6 +37,6 @@ fn borrowed() {
 
 fn test<'b, 'a: 'b>(lives_longer: &Foo<'a>, lives_less: Foo<'b>) {
     drop(lives_less);
-    #[allow(clippy::drop_ref)]
+    #[allow(dropping_references)]
     drop(lives_longer);
 }

@@ -1,7 +1,7 @@
 use crate::field_kind::FieldKind;
 
 pub fn has_lifetime_arguments(segments: &[syn::PathSegment]) -> bool {
-    if let Some(&syn::PathArguments::AngleBracketed(ref generics)) =
+    if let Some(syn::PathArguments::AngleBracketed(generics)) =
         segments.last().map(|x| &x.arguments)
     {
         generics
@@ -14,7 +14,7 @@ pub fn has_lifetime_arguments(segments: &[syn::PathSegment]) -> bool {
 }
 
 pub fn number_of_type_arguments(segments: &[syn::PathSegment]) -> usize {
-    if let Some(&syn::PathArguments::AngleBracketed(ref generics)) =
+    if let Some(syn::PathArguments::AngleBracketed(generics)) =
         segments.last().map(|x| &x.arguments)
     {
         generics
@@ -28,13 +28,15 @@ pub fn number_of_type_arguments(segments: &[syn::PathSegment]) -> usize {
 }
 
 pub fn has_binding_arguments(segments: &[syn::PathSegment]) -> bool {
-    if let Some(&syn::PathArguments::AngleBracketed(ref generics)) =
+    if let Some(syn::PathArguments::AngleBracketed(generics)) =
         segments.last().map(|x| &x.arguments)
     {
-        generics
-            .args
-            .iter()
-            .any(|f| matches!(f, syn::GenericArgument::Binding(_)))
+        generics.args.iter().any(|f| {
+            matches!(
+                f,
+                syn::GenericArgument::AssocConst(_) | syn::GenericArgument::AssocType(_)
+            )
+        })
     } else {
         false
     }
@@ -66,9 +68,7 @@ pub fn is_cow(segments: &[syn::PathSegment]) -> bool {
 }
 
 pub fn is_cow_alike(segments: &[syn::PathSegment]) -> bool {
-    if let Some(&syn::PathArguments::AngleBracketed(ref _data)) =
-        segments.last().map(|x| &x.arguments)
-    {
+    if let Some(syn::PathArguments::AngleBracketed(_data)) = segments.last().map(|x| &x.arguments) {
         has_lifetime_arguments(segments)
     } else {
         false
